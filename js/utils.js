@@ -1,6 +1,10 @@
-// Функция возвращает текущую дату в формате ГГГГ-ММ-ДД
+// Функция возвращает текущую дату в формате ГГГГ-ММ-ДД (локальная дата пользователя)
 function getTodayDate() {
-    return new Date().toISOString().split('T')[0]; // [0] - берет первый элемент массива (только дату без времени)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // Функция проверяет строку на пустоту и длину
@@ -24,5 +28,5 @@ function validatePages(pages) {
 //вычисляет процент прочитанных страниц
 function calculatePercent(readPages, totalPages) {
     if (totalPages === 0) return 0;
-    return Math.round((readPages / totalPages) * 100);     // Math.round() - округляет число до ближайшего целого
+    return Math.round((readPages / totalPages) * 100);
 }

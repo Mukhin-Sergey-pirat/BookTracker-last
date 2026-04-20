@@ -54,7 +54,51 @@ function initDOM() {
     DOM.closeModal = document.querySelector('.close');
 }
 
-// добавление данных 
+// ГЛАВНАЯ ФУНКЦИЯ ПРИНУДИТЕЛЬНОЙ ПРОВЕРКИ ДАТЫ
+function syncDateAndRefresh() {
+    // Получаем текущую системную дату
+    const systemDate = getTodayDate();
+    
+    // Получаем сохранённую дату из localStorage
+    let storedDate = localStorage.getItem('lastVisitDate');
+    
+    // Для отладки (можно посмотреть в консоли F12)
+    console.log('System date:', systemDate);
+    console.log('Stored date:', storedDate);
+    
+    // Если сохранённой даты нет или она отличается от системной
+    if (!storedDate || storedDate !== systemDate) {
+        console.log('Date mismatch! Updating...');
+        
+        // Обновляем сохранённую дату
+        localStorage.setItem('lastVisitDate', systemDate);
+        
+        // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВСЕ ДАННЫЕ
+        
+        // 1. Обновляем статистику
+        if (DOM.currentStreak) DOM.currentStreak.textContent = calculateStreak();
+        if (DOM.totalPagesRead) DOM.totalPagesRead.textContent = getTotalPagesRead();
+        if (DOM.avgSpeed) DOM.avgSpeed.textContent = calculateAverageSpeed();
+        if (DOM.totalCompleted) DOM.totalCompleted.textContent = getCompletedBooksCount();
+        
+        // 2. Обновляем дневную цель
+        renderDailyGoalProgress();
+        
+        // 3. Обновляем график
+        updateChart();
+        
+        // 4. Перерисовываем таблицу
+        renderBooksList();
+        
+        // 5. Показываем уведомление
+        showNotification(`Дата синхронизирована: ${systemDate}`);
+        
+        return true;
+    }
+    return false;
+}
+
+// добавление данные книги
 function addBook(title, author, totalPages) {
     const newBook = {
         id: nextBookId++,
@@ -66,19 +110,19 @@ function addBook(title, author, totalPages) {
         startDate: getTodayDate(),
         lastUpdate: new Date().toISOString()
     };
-    books.push(newBook);
-    saveDataToStorage();
+    books.push(newBook); // добавление книги в массив
+    saveDataToStorage(); // data.js
     renderAll();
 }
 
 function updateProgress(bookId, pagesRead) {
-    const book = books.find(b => b.id === bookId);
+    const book = books.find(b => b.id === bookId); // поиск книги по id
     if (!book) return false;
     
     const pagesToAdd = parseInt(pagesRead);
     const newReadPages = book.readPages + pagesToAdd;
     
-    if (newReadPages > book.totalPages) {
+    if (newReadPages > book.totalPages) { //валидация
         showNotification(`Нельзя прочитать больше ${book.totalPages} стр.`, false);
         return false;
     }
@@ -86,20 +130,20 @@ function updateProgress(bookId, pagesRead) {
     book.readPages = newReadPages;
     book.lastUpdate = new Date().toISOString();
     
-    if (book.readPages === book.totalPages && book.status !== BOOK_STATUS.COMPLETED) {
+    if (book.readPages === book.totalPages && book.status !== BOOK_STATUS.COMPLETED) { // проверка на возможность завершения книги
         book.status = BOOK_STATUS.COMPLETED;
         showNotification(`Вы закончили "${book.title}"!`, true);
-        checkBadges();
+        checkBadges(); //bookManager.js
     }
     
-    addToReadingHistory(pagesToAdd);
-    saveDataToStorage();
+    addToReadingHistory(pagesToAdd); //bookManager.js
+    saveDataToStorage(); //data.js
     renderAll();
     checkDailyGoalCompletion(pagesToAdd);
     return true;
 }
 
-function changeBookStatus(bookId, newStatus) {
+function changeBookStatus(bookId, newStatus) { //меняю статус книги
     const book = books.find(b => b.id === bookId);
     if (book) {
         book.status = newStatus;
@@ -110,32 +154,28 @@ function changeBookStatus(bookId, newStatus) {
 }
 
 function addToReadingHistory(pages) {
-    const today = getTodayDate();
-    const existingIndex = readingHistory.findIndex(h => h.date === today);
-    
-    if (existingIndex !== -1) {
+    const today = getTodayDate(); //utils.js
+    const existingIndex = readingHistory.findIndex(h => h.date === today); //поиск записи за сегодняшний день (если нету будет -1)
+    if (existingIndex !== -1) { //обновление существующей записи
         readingHistory[existingIndex].pages += pages;
-    } else {
+    } else { //если записи нет (создаёт новую запись)
         readingHistory.push({ date: today, pages: pages });
     }
     
-    // Сортируем историю по дате (от старых к новым)
-    readingHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+    readingHistory.sort((a, b) => new Date(a.date) - new Date(b.date)); // сортируем историю по дате (от старых к новым)
 }
 
 // статистика 
 function calculateStreak() {
-    if (readingHistory.length === 0) return 0;
+    if (readingHistory.length === 0) return 0; //если стрика нету 
     
-    // Получаем отсортированные дни с чтением (от новых к старым)
-    const sorted = [...readingHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sorted = [...readingHistory].sort((a, b) => new Date(b.date) - new Date(a.date)); // Получаем отсортированные дни с чтением (от новых к старым)
     
     let streak = 0;
-    // Начинаем с сегодняшней даты
-    let expectedDate = new Date();
+    let expectedDate = new Date();     // Начинаем с сегодняшней даты
     expectedDate.setHours(0, 0, 0, 0);
     
-    for (let i = 0; i < sorted.length; i++) {
+    for (let i = 0; i < sorted.length; i++) { //цикл по отсортированным записям
         const entryDate = new Date(sorted[i].date);
         entryDate.setHours(0, 0, 0, 0);
         
@@ -151,28 +191,27 @@ function calculateStreak() {
         }
         // Если дата записи больше ожидаемой - игнорируем (дубликат или будущая дата)
     }
-    
     return streak;
 }
 
 function calculateAverageSpeed() {
     // Получаем последние 7 дней с чтением (не календарных, а фактических записей)
-    const last7Entries = readingHistory.slice(-7);
+    const last7Entries = readingHistory.slice(-7); //тот же массив только отсчёт идёт с конца
     if (last7Entries.length === 0) return 0;
     
-    const totalPagesLast7 = last7Entries.reduce((sum, entry) => sum + entry.pages, 0);
-    return Math.round(totalPagesLast7 / last7Entries.length);
+    const totalPagesLast7 = last7Entries.reduce((sum, entry) => sum + entry.pages, 0); //cуммирование страниц за последние 7 записей
+    return Math.round(totalPagesLast7 / last7Entries.length); // находим стр/д за неделю
 }
 
-function getTotalPagesRead() {
+function getTotalPagesRead() { //суммирование прочитанных страниц всех книг
     return books.reduce((s, b) => s + b.readPages, 0);
 }
 
-function getCompletedBooksCount() {
+function getCompletedBooksCount() { //подсчёт законченных книг
     return books.filter(b => b.status === BOOK_STATUS.COMPLETED).length;
 }
 
-function updateStatistics() {
+function updateStatistics() { //обновление данных
     if (DOM.totalCompleted) DOM.totalCompleted.textContent = getCompletedBooksCount();
     if (DOM.totalPagesRead) DOM.totalPagesRead.textContent = getTotalPagesRead();
     if (DOM.avgSpeed) DOM.avgSpeed.textContent = calculateAverageSpeed();
@@ -185,14 +224,22 @@ function updateChart() {
     if (!DOM.progressChart) return;
     const ctx = DOM.progressChart.getContext('2d');
     
-    // Получаем последние 7 календарных дней (включая сегодня)
+    // Получаем последние 7 календарных дней (включая сегодня) в ЛОКАЛЬНОМ времени
     const labels = [];
     const data = [];
     
+    const today = new Date();
+    
     for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        // Форматируем дату в локальный формат ГГГГ-ММ-ДД
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
         labels.push(dateStr.slice(5)); // Показываем только день и месяц (MM-DD)
         
         const entry = readingHistory.find(h => h.date === dateStr);
@@ -240,9 +287,9 @@ function setDailyGoal(goal) {
     const newGoal = parseInt(goal);
     if (newGoal > 0) {
         dailyGoal = newGoal;
-        saveDataToStorage();
+        saveDataToStorage(); //data.js
         showNotification(`Дневная цель: ${dailyGoal} стр./день`);
-        renderDailyGoalProgress();
+        renderDailyGoalProgress(); //bookManager.js
     } else {
         showNotification('Цель от 1 страницы', false);
     }
@@ -250,45 +297,42 @@ function setDailyGoal(goal) {
 
 function getTodayReadPages() {
     const today = getTodayDate();
-    const entry = readingHistory.find(h => h.date === today);
-    return entry ? entry.pages : 0;
+    const entry = readingHistory.find(h => h.date === today); //поиск записи за сегодняшний день
+    return entry ? entry.pages : 0; //возврат количества страниц
 }
 
-function renderDailyGoalProgress() {
+function renderDailyGoalProgress() { //кол вол странци за сегодня
     const todayRead = getTodayReadPages();
-    const percent = Math.min(100, (todayRead / dailyGoal) * 100);
+    const percent = Math.min(100, (todayRead / dailyGoal) * 100); // расчёт процента выполнения цели это нужно для прогрес барра ежедневной цели
     if (DOM.dailyProgressFill) DOM.dailyProgressFill.style.width = `${percent}%`;
     if (DOM.goalStatusText) DOM.goalStatusText.textContent = `${todayRead} / ${dailyGoal} стр.`;
 }
 
 function checkDailyGoalCompletion(added) {
     const todayRead = getTodayReadPages();
-    const wasCompleted = (todayRead - added) >= dailyGoal;
-    const isCompleted = todayRead >= dailyGoal;
-    if (isCompleted && !wasCompleted) {
-        showNotification(`Выполнена дневная норма ${dailyGoal} стр.!`, true);
+    if (todayRead >= dailyGoal && (todayRead - added) < dailyGoal) {
+        showNotification(`Выполнена дневная норма ${dailyGoal} стр.!`);
     }
 }
 
 function showNotification(msg, isSuccess = true) {
     if (!DOM.motivationMessage) return;
     DOM.motivationMessage.textContent = msg;
-    // Автоматически очищаем сообщение через 3 секунды
-    setTimeout(() => {
+    setTimeout(() => { // Автоматически очищаем сообщение через 6 секунды
         if (DOM.motivationMessage && DOM.motivationMessage.textContent === msg) {
             DOM.motivationMessage.textContent = 'Установи цель, чтобы начать!';
         }
-    }, 3000);
+    }, 6000);
 }
 
-function updateDailyQuote() {
+function updateDailyQuote() { //обновление цитаты
     if (DOM.dailyQuote) {
         const idx = Math.floor(Math.random() * QUOTES.length);
-        DOM.dailyQuote.textContent = QUOTES[idx];
+        DOM.dailyQuote.textContent = QUOTES[idx]; //цитата из массива по случайному индексу
     }
 }
 
-function checkBadges() {
+function checkBadges() { //достижение
     const completed = getCompletedBooksCount();
     const totalPages = getTotalPagesRead();
     const streak = calculateStreak();
@@ -313,12 +357,12 @@ function checkBadges() {
     });
 }
 
-// обнова
+// обновление
 function renderBooksList() {
     if (!DOM.booksList) return;
-    let filtered = currentFilter === 'all' ? books : books.filter(b => b.status === currentFilter);
-    DOM.booksList.innerHTML = '';
-    if (filtered.length === 0) {
+    let filtered = currentFilter === 'all' ? books : books.filter(b => b.status === currentFilter); //фильтрация книг
+    DOM.booksList.innerHTML = ''; // очистка таблицы
+    if (filtered.length === 0) { 
         DOM.booksList.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;">Нет книг</td></tr>';
         return;
     }
@@ -361,6 +405,9 @@ function updateFilterButtons() {
 }
 
 function renderAll() {
+    // КРИТИЧЕСКИ ВАЖНО: синхронизируем дату ПЕРЕД каждым обновлением
+    syncDateAndRefresh();
+    
     renderBooksList();
     updateStatistics();
     renderDailyGoalProgress();
@@ -370,20 +417,19 @@ function renderAll() {
 
 // всплывающие окно
 window.openProgressModal = function(bookId) {
-    const book = books.find(b => b.id === bookId);
-    if (book && DOM.modal) {
-        currentBookId = bookId;
-        DOM.modalBookTitle.textContent = `${book.title} — ${book.author}`;
-        DOM.progressPages.value = '';
-        DOM.modal.style.display = 'flex';
-    }
+    const book = books.find(b => b.id === bookId); //поиск книги
+    if (!book || !DOM.modal) return;
+    currentBookId = bookId;
+    DOM.modalBookTitle.textContent = `${book.title} — ${book.author}`;
+    DOM.progressPages.value = '';
+    DOM.modal.style.display = 'flex';
 };
 
 function closeModal() {
     if (DOM.modal) DOM.modal.style.display = 'none';
 }
 
-function saveProgressFromModal() {
+function saveProgressFromModal() { //валидация
     const pages = parseInt(DOM.progressPages.value);
     if (isNaN(pages) || pages <= 0) showNotification('Введите корректное число', false);
     else if (currentBookId) { 
@@ -392,8 +438,8 @@ function saveProgressFromModal() {
     }
 }
 
-// событие
-function initEvents() {
+// обработчик событий
+function initEvents() { //добавление книги  
     if (DOM.bookForm) DOM.bookForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const titleErr = validateString(DOM.bookTitle.value, 'Название');
@@ -405,14 +451,14 @@ function initEvents() {
         else addBook(DOM.bookTitle.value, DOM.bookAuthor.value, DOM.bookPages.value);
         DOM.bookForm.reset();
     });
-    if (DOM.setGoalBtn) DOM.setGoalBtn.addEventListener('click', () => setDailyGoal(DOM.dailyGoalInput.value));
-    DOM.filterBtns.forEach(btn => btn.addEventListener('click', () => { 
+    if (DOM.setGoalBtn) DOM.setGoalBtn.addEventListener('click', () => setDailyGoal(DOM.dailyGoalInput.value)); // обработка нажатия кнопки дневной цели
+    DOM.filterBtns.forEach(btn => btn.addEventListener('click', () => {  // обработка нажатие на кнопки статуса все/читаю/закончил/отложил
         currentFilter = btn.dataset.filter; 
         renderBooksList(); 
         updateFilterButtons(); 
     }));
-    if (DOM.saveProgressBtn) DOM.saveProgressBtn.onclick = saveProgressFromModal;
-    if (DOM.closeModal) DOM.closeModal.onclick = closeModal;
+    if (DOM.saveProgressBtn) DOM.saveProgressBtn.onclick = saveProgressFromModal;// модальное окно
+    if (DOM.closeModal) DOM.closeModal.onclick = closeModal; // модальное окно закрытие 
     window.onclick = (e) => { if (e.target === DOM.modal) closeModal(); };
 }
 
@@ -420,6 +466,8 @@ function initEvents() {
 function init() {
     initDOM();
     initEvents();
+    // ПЕРВОЕ ДЕЛО: синхронизируем дату при загрузке страницы
+    syncDateAndRefresh();
     renderAll();
     if (DOM.dailyGoalInput) DOM.dailyGoalInput.value = dailyGoal;
 }
