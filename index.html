@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>BookTracker - Трекер чтения книг</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <script src="js/constants.js" defer></script>
+    <script src="js/utils.js" defer></script>
+    <script src="js/data.js" defer></script>
+    <script src="js/bookManager.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1> BookTracker</h1>
+            <p>Твой персональный помощник в мире книг</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- левая колонка -->
+            <div class="left-panel">
+                <div class="card">
+                    <h2> Добавить книгу</h2>
+                    <form id="bookForm">
+                        <input type="text" id="bookTitle" placeholder="Название книги" required>
+                        <input type="text" id="bookAuthor" placeholder="Автор" required>
+                        <input type="number" id="bookPages" placeholder="Количество страниц" min="1" required>
+                        <button type="submit">Добавить книгу</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2> Дневная цель</h2>
+                    <div class="goal-section">
+                        <label>Страниц в день:</label>
+                        <div class="goal-input-group">
+                            <input type="number" id="dailyGoalInput" min="1" value="30" step="5">
+                            <button id="setGoalBtn">Установить</button>
+                        </div>
+                        <div class="goal-progress">
+                            <span>Прогресс сегодня:</span>
+                            <div class="progress-bar">
+                                <div id="dailyProgressFill" class="progress-fill"></div>
+                            </div>
+                            <span id="goalStatusText">0 / 30 стр.</span>
+                        </div>
+                        <div id="motivationMessage" class="motivation-message"> Установи цель, чтобы начать!</div>
+                    </div>
+                </div>
+
+                <div class="card quote-card">
+                    <h3> Цитата о чтении</h3>
+                    <p id="dailyQuote">"Книга — это мечта, которую ты держишь в руках." — Нил Гейман</p>
+                </div>
+
+                <div class="card">
+                    <h3> Достижения</h3>
+                    <div id="badgesContainer" class="badges">
+                        <div class="badge locked" data-badge="first_book"> Первая книга</div>
+                        <div class="badge locked" data-badge="streak_7"> 7 дней чтения</div>
+                        <div class="badge locked" data-badge="pages_1000"> 1000 страниц</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- правая колонка -->
+            <div class="right-panel">
+                <div class="filter-bar">
+                    <button class="filter-btn active" data-filter="all"> Все</button>
+                    <button class="filter-btn" data-filter="reading"> Читаю</button>
+                    <button class="filter-btn" data-filter="completed"> Закончил</button>
+                    <button class="filter-btn" data-filter="postponed"> Отложил</button>
+                </div>
+
+                <div class="card books-table-container">
+                    <h2> Мои книги</h2>
+                    <div class="table-wrapper">
+                        <table id="booksTable"> <!-- таблица -->
+                            <thead><tr><th>Название</th><th>Автор</th><th>Прогресс</th><th>Статус</th><th>Действия</th></tr></thead> <!-- ячейки заголовки -->
+                            <tbody id="booksList"></tbody>  <!-- основной текст таблицы -->
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2> Статистика</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card"><span> Закончено книг:</span><strong id="totalCompleted">0</strong></div>
+                        <div class="stat-card"><span> Всего страниц:</span><strong id="totalPagesRead">0</strong></div>
+                        <div class="stat-card"><span> Средняя скорость:</span><strong id="avgSpeed">0</strong><span> стр./день</span></div>
+                        <div class="stat-card"><span> Текущая серия:</span><strong id="currentStreak">0</strong><span> дней</span></div>
+                    </div>
+                    <canvas id="progressChart" width="400" height="200"></canvas>
+                    <p class="chart-note"> Прогресс чтения за последние 7 дней</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно -->
+    <div id="progressModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3> Отметить прогресс</h3>
+            <p id="modalBookTitle"></p>
+            <label>Прочитано страниц:</label>
+            <input type="number" id="progressPages" min="1" placeholder="Количество страниц">
+            <button id="saveProgressBtn">Сохранить</button>
+        </div>
+    </div>
+</body>
+</html>
