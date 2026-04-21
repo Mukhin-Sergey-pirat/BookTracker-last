@@ -337,24 +337,82 @@ function checkBadges() { //достижение
     const totalPages = getTotalPagesRead();
     const streak = calculateStreak();
     const badges = document.querySelectorAll('.badge');
+    let changed = false;
+    
     badges.forEach(b => {
         const type = b.dataset.badge;
         if (type === 'first_book' && completed >= 1 && b.classList.contains('locked')) {
             b.classList.remove('locked'); 
             b.style.background = '#f1c40f';
             showNotification('Достижение: Первая книга!');
+            changed = true;
         }
         if (type === 'streak_7' && streak >= 7 && b.classList.contains('locked')) {
             b.classList.remove('locked'); 
             b.style.background = '#e67e22';
             showNotification('Достижение: 7 дней чтения!');
+            changed = true;
         }
         if (type === 'pages_1000' && totalPages >= 1000 && b.classList.contains('locked')) {
             b.classList.remove('locked'); 
             b.style.background = '#9b59b6';
             showNotification('Достижение: 1000 страниц!');
+            changed = true;
         }
     });
+    
+    if (changed) {
+        saveBadgesState();
+    }
+}
+
+function restoreBadgesOnLoad() {
+    const completed = getCompletedBooksCount();
+    const totalPages = getTotalPagesRead();
+    const streak = calculateStreak();
+    const badges = document.querySelectorAll('.badge');
+    
+    const savedBadges = localStorage.getItem(STORAGE_KEYS.BADGES);
+    
+    if (savedBadges) {
+        const badgesState = JSON.parse(savedBadges);
+        badges.forEach(badge => {
+            const type = badge.dataset.badge;
+            if (badgesState[type] === true && badge.classList.contains('locked')) {
+                badge.classList.remove('locked');
+                if (type === 'first_book') {
+                    badge.style.background = '#f1c40f';
+                } else if (type === 'streak_7') {
+                    badge.style.background = '#e67e22';
+                } else if (type === 'pages_1000') {
+                    badge.style.background = '#9b59b6';
+                }
+            }
+        });
+    } else {
+        let changed = false;
+        badges.forEach(b => {
+            const type = b.dataset.badge;
+            if (type === 'first_book' && completed >= 1 && b.classList.contains('locked')) {
+                b.classList.remove('locked'); 
+                b.style.background = '#f1c40f';
+                changed = true;
+            }
+            if (type === 'streak_7' && streak >= 7 && b.classList.contains('locked')) {
+                b.classList.remove('locked'); 
+                b.style.background = '#e67e22';
+                changed = true;
+            }
+            if (type === 'pages_1000' && totalPages >= 1000 && b.classList.contains('locked')) {
+                b.classList.remove('locked'); 
+                b.style.background = '#9b59b6';
+                changed = true;
+            }
+        });
+        if (changed) {
+            saveBadgesState();
+        }
+    }
 }
 
 // обновление
@@ -413,6 +471,7 @@ function renderAll() {
     renderDailyGoalProgress();
     updateDailyQuote();
     updateFilterButtons();
+    checkBadges();
 }
 
 // всплывающие окно
@@ -470,6 +529,7 @@ function init() {
     syncDateAndRefresh();
     renderAll();
     if (DOM.dailyGoalInput) DOM.dailyGoalInput.value = dailyGoal;
+    restoreBadgesOnLoad();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

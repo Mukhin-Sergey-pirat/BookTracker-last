@@ -35,5 +35,6 @@ const STORAGE_KEYS = {
     BOOKS: 'bookTracker_books',
     HISTORY: 'bookTracker_history', 
     DAILY_GOAL: 'bookTracker_dailyGoal',
-    NEXT_ID: 'bookTracker_nextId'
+    NEXT_ID: 'bookTracker_nextId',
+    BADGES: 'bookTracker_badges'
 };

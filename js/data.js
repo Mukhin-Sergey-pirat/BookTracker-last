@@ -27,7 +27,38 @@ function saveDataToStorage() {
     localStorage.setItem(STORAGE_KEYS.NEXT_ID, nextBookId);
 }
 
-// Пустая функция для совместимости (демо-данные не добавляем)
+function saveBadgesState() {
+    const badgesState = {};
+    const badges = document.querySelectorAll('.badge');
+    badges.forEach(badge => {
+        const type = badge.dataset.badge;
+        badgesState[type] = !badge.classList.contains('locked');
+    });
+    localStorage.setItem(STORAGE_KEYS.BADGES, JSON.stringify(badgesState));
+}
+
+function loadBadgesState() {
+    const savedBadges = localStorage.getItem(STORAGE_KEYS.BADGES);
+    if (!savedBadges) return;
+    
+    const badgesState = JSON.parse(savedBadges);
+    const badges = document.querySelectorAll('.badge');
+    
+    badges.forEach(badge => {
+        const type = badge.dataset.badge;
+        if (badgesState[type] === true && badge.classList.contains('locked')) {
+            badge.classList.remove('locked');
+            if (type === 'first_book') {
+                badge.style.background = '#f1c40f';
+            } else if (type === 'streak_7') {
+                badge.style.background = '#e67e22';
+            } else if (type === 'pages_1000') {
+                badge.style.background = '#9b59b6';
+            }
+        }
+    });
+}
+
 function initDemoData() {
     // Демо-данные не добавляются, чтобы не засорять существующие данные
 }
