@@ -54,45 +54,22 @@ function initDOM() {
     DOM.closeModal = document.querySelector('.close');
 }
 
-// ГЛАВНАЯ ФУНКЦИЯ ПРИНУДИТЕЛЬНОЙ ПРОВЕРКИ ДАТЫ
-function syncDateAndRefresh() {
-    // Получаем текущую системную дату
+function syncDateAndRefresh() { // функция проверки даты и принудительного обновления всех данных
     const systemDate = getTodayDate();
-    
-    // Получаем сохранённую дату из localStorage
     let storedDate = localStorage.getItem('lastVisitDate');
-    
-    // Для отладки (можно посмотреть в консоли F12)
     console.log('System date:', systemDate);
     console.log('Stored date:', storedDate);
-    
-    // Если сохранённой даты нет или она отличается от системной
     if (!storedDate || storedDate !== systemDate) {
         console.log('Date mismatch! Updating...');
-        
-        // Обновляем сохранённую дату
         localStorage.setItem('lastVisitDate', systemDate);
-        
-        // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВСЕ ДАННЫЕ
-        
-        // 1. Обновляем статистику
         if (DOM.currentStreak) DOM.currentStreak.textContent = calculateStreak();
         if (DOM.totalPagesRead) DOM.totalPagesRead.textContent = getTotalPagesRead();
         if (DOM.avgSpeed) DOM.avgSpeed.textContent = calculateAverageSpeed();
         if (DOM.totalCompleted) DOM.totalCompleted.textContent = getCompletedBooksCount();
-        
-        // 2. Обновляем дневную цель
         renderDailyGoalProgress();
-        
-        // 3. Обновляем график
         updateChart();
-        
-        // 4. Перерисовываем таблицу
         renderBooksList();
-        
-        // 5. Показываем уведомление
         showNotification(`Дата синхронизирована: ${systemDate}`);
-        
         return true;
     }
     return false;
@@ -161,46 +138,60 @@ function addToReadingHistory(pages) {
     } else { //если записи нет (создаёт новую запись)
         readingHistory.push({ date: today, pages: pages });
     }
-    
     readingHistory.sort((a, b) => new Date(a.date) - new Date(b.date)); // сортируем историю по дате (от старых к новым)
 }
 
 // статистика 
 function calculateStreak() {
     if (readingHistory.length === 0) return 0; //если стрика нету 
-    
-    const sorted = [...readingHistory].sort((a, b) => new Date(b.date) - new Date(a.date)); // Получаем отсортированные дни с чтением (от новых к старым)
-    
+    const sorted = [...readingHistory].sort((a, b) => new Date(b.date) - new Date(a.date)); // сорт массив с чтением от новых к старым
     let streak = 0;
-    let expectedDate = new Date();     // Начинаем с сегодняшней даты
+    let expectedDate = new Date();
     expectedDate.setHours(0, 0, 0, 0);
     
     for (let i = 0; i < sorted.length; i++) { //цикл по отсортированным записям
         const entryDate = new Date(sorted[i].date);
         entryDate.setHours(0, 0, 0, 0);
-        
-        // Если дата записи совпадает с ожидаемой датой
-        if (entryDate.getTime() === expectedDate.getTime() && sorted[i].pages > 0) {
+        if (entryDate.getTime() === expectedDate.getTime() && sorted[i].pages > 0) { // Если дата записи совпадает с ожидаемой датой
             streak++;
-            // Сдвигаем ожидаемую дату на один день назад
-            expectedDate.setDate(expectedDate.getDate() - 1);
+            expectedDate.setDate(expectedDate.getDate() - 1); // Сдвигаем ожидаемую дату на один день назад
         } 
-        // Если дата записи меньше ожидаемой (пропущен день) - прерываем серию
-        else if (entryDate.getTime() < expectedDate.getTime()) {
+        else if (entryDate.getTime() < expectedDate.getTime()) { // Если дата записи меньше ожидаемой (пропущен день) - прерываем серию
             break;
         }
-        // Если дата записи больше ожидаемой - игнорируем (дубликат или будущая дата)
     }
     return streak;
 }
 
 function calculateAverageSpeed() {
-    // Получаем последние 7 дней с чтением (не календарных, а фактических записей)
-    const last7Entries = readingHistory.slice(-7); //тот же массив только отсчёт идёт с конца
-    if (last7Entries.length === 0) return 0;
+    if (readingHistory.length === 0) return 0;
+    const sortedHistory = [...readingHistory].sort((a, b) => new Date(a.date) - new Date(b.date));     // Находим самую раннюю дату в истории
+    const firstDate = new Date(sortedHistory[0].date);
+    const today = new Date();
+    let startDate = new Date(today);
+    startDate.setDate(today.getDate() - 6); // отступаем 6 дней назад от сегодня
+    if (firstDate > startDate) {
+        startDate = new Date(firstDate);
+    }
     
-    const totalPagesLast7 = last7Entries.reduce((sum, entry) => sum + entry.pages, 0); //cуммирование страниц за последние 7 записей
-    return Math.round(totalPagesLast7 / last7Entries.length); // находим стр/д за неделю
+    // собираем страницы за каждый день в выбранном диапазоне (максимум 7 дней)
+    const daysPages = [];
+    const endDate = new Date(today);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        const entry = readingHistory.find(h => h.date === dateStr);
+        daysPages.push(entry ? entry.pages : 0);
+    }
+    
+    if (daysPages.length === 0) return 0;
+    
+    const totalPages = daysPages.reduce((sum, pages) => sum + pages, 0);
+    return Math.round(totalPages / daysPages.length);
 }
 
 function getTotalPagesRead() { //суммирование прочитанных страниц всех книг
@@ -224,7 +215,7 @@ function updateChart() {
     if (!DOM.progressChart) return;
     const ctx = DOM.progressChart.getContext('2d');
     
-    // Получаем последние 7 календарных дней (включая сегодня) в ЛОКАЛЬНОМ времени
+    // получаем последние 7 календарных дней
     const labels = [];
     const data = [];
     
@@ -234,14 +225,12 @@ function updateChart() {
         const date = new Date(today);
         date.setDate(today.getDate() - i);
         
-        // Форматируем дату в локальный формат ГГГГ-ММ-ДД
+        // форматируем дату в локальный формат ГГГГ-ММ-ДД
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
-        
-        labels.push(dateStr.slice(5)); // Показываем только день и месяц (MM-DD)
-        
+        labels.push(dateStr.slice(5));
         const entry = readingHistory.find(h => h.date === dateStr);
         data.push(entry ? entry.pages : 0);
     }
@@ -318,7 +307,7 @@ function checkDailyGoalCompletion(added) {
 function showNotification(msg, isSuccess = true) {
     if (!DOM.motivationMessage) return;
     DOM.motivationMessage.textContent = msg;
-    setTimeout(() => { // Автоматически очищаем сообщение через 6 секунды
+    setTimeout(() => { //автоматически очищаем сообщение через 6 секунды
         if (DOM.motivationMessage && DOM.motivationMessage.textContent === msg) {
             DOM.motivationMessage.textContent = 'Установи цель, чтобы начать!';
         }
@@ -339,7 +328,7 @@ function checkBadges() { //достижение
     const badges = document.querySelectorAll('.badge');
     let changed = false;
     
-    badges.forEach(b => {
+    badges.forEach(b => { //отметка достижений
         const type = b.dataset.badge;
         if (type === 'first_book' && completed >= 1 && b.classList.contains('locked')) {
             b.classList.remove('locked'); 
@@ -371,7 +360,6 @@ function restoreBadgesOnLoad() {
     const totalPages = getTotalPagesRead();
     const streak = calculateStreak();
     const badges = document.querySelectorAll('.badge');
-    
     const savedBadges = localStorage.getItem(STORAGE_KEYS.BADGES);
     
     if (savedBadges) {
@@ -463,9 +451,7 @@ function updateFilterButtons() {
 }
 
 function renderAll() {
-    // КРИТИЧЕСКИ ВАЖНО: синхронизируем дату ПЕРЕД каждым обновлением
     syncDateAndRefresh();
-    
     renderBooksList();
     updateStatistics();
     renderDailyGoalProgress();
