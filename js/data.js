@@ -60,7 +60,6 @@ function loadBadgesState() {
 }
 
 function initDemoData() {
-    // Демо-данные не добавляются, чтобы не засорять существующие данные
 }
 
 loadDataFromStorage();

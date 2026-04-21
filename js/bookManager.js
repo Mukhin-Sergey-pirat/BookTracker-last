@@ -1,4 +1,4 @@
-// добавляем эл в массив
+// добавляем эл в обьект
 const DOM = {
     bookForm: null,
     bookTitle: null,
